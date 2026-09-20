@@ -1,20 +1,24 @@
-
 import streamlit as st
 
 from src.pdf_processor import extract_text_from_pdf
-from src.image_processor import generate_mcqs_from_image
+from src.image_processor import (
+    generate_mcqs_from_image,
+    analyze_image_content,
+    generate_summary_from_image
+)
 from src.question_generator import generate_mcqs_from_text
 from src.validator import validate_mcqs
+from src.summary_generator import generate_summary
+from src.content_analyzer import analyze_content
 
 # PAGE CONFIGURATION
-
 st.set_page_config(
-    page_title="MCQ Generator",
+    page_title="AI Study Assistant",
     layout="wide"
 )
 
-# HEADER
 
+# HEADER
 st.title("AI Study Assistant")
 
 st.write(
@@ -29,8 +33,6 @@ st.caption(
 st.divider()
 
 # SIDEBAR
-
-
 with st.sidebar:
 
     st.header("Quiz Settings")
@@ -54,14 +56,24 @@ with st.sidebar:
         ["Easy", "Medium", "Hard"]
     )
 
+    subject = st.text_input(
+        "Subject",
+        placeholder="e.g. Anatomy"
+    )
+
+    topic = st.text_input(
+        "Topic",
+        placeholder="e.g. Respiratory System"
+    )
+
     st.divider()
 
     st.caption(
         "Upload or enter your study material "
         "and generate an interactive quiz."
     )
-# PDF INPUT
 
+# PDF INPUT
 if input_type == "PDF":
 
     uploaded_file = st.file_uploader(
@@ -76,7 +88,7 @@ if input_type == "PDF":
         if st.button("Generate MCQs", type="primary"):
 
             with st.spinner(
-                "Reading PDF and generating MCQs..."
+                "Reading PDF and generating study material..."
             ):
 
                 try:
@@ -93,15 +105,39 @@ if input_type == "PDF":
 
                     else:
 
+                        # Generate summary
+                        detected = analyze_content(extracted_text)
+
+                        detected_subject = detected["subject"]
+                        detected_topic = detected["topic"]
+
+                        st.session_state["detected_subject"] = detected_subject
+                        st.session_state["detected_topic"] = detected_topic
+
+                        final_subject = subject if subject.strip() else detected_subject
+                        final_topic = topic if topic.strip() else detected_topic
+
+                        summary = generate_summary(
+                            extracted_text,
+                            final_subject,
+                            final_topic
+                        )
+
+                        st.session_state["summary"] = summary
+
                         mcqs = generate_mcqs_from_text(
                             extracted_text,
                             number_of_questions,
-                            difficulty
-                        )
+                            difficulty,
+                            final_subject,
+                            final_topic
+                                     )
 
+                        # Validate MCQs
                         is_valid, message = validate_mcqs(
-                             mcqs,
-                              number_of_questions)
+                            mcqs,
+                            number_of_questions
+                        )
 
                         if is_valid:
 
@@ -109,10 +145,10 @@ if input_type == "PDF":
                             st.session_state["quiz_submitted"] = False
 
                         else:
-                            st.error(f"MCQ validation failed: {message}")
-                          
 
-    
+                            st.error(
+                                f"MCQ validation failed: {message}"
+                            )
 
                 except Exception as e:
 
@@ -120,9 +156,7 @@ if input_type == "PDF":
                         f"Something went wrong: {e}"
                     )
 
-
 # IMAGE INPUT
-
 elif input_type == "Image":
 
     uploaded_file = st.file_uploader(
@@ -146,33 +180,54 @@ elif input_type == "Image":
 
                 try:
 
+                    detected = analyze_image_content(uploaded_file)
+
+                    detected_subject = detected["subject"]
+                    detected_topic = detected["topic"]
+
+                    st.session_state["detected_subject"] = detected_subject
+                    st.session_state["detected_topic"] = detected_topic
+
+                    final_subject = subject if subject.strip() else detected_subject
+                    final_topic = topic if topic.strip() else detected_topic
+
+                    summary = generate_summary_from_image(
+                        uploaded_file,
+                        final_subject,
+                        final_topic
+                    )
+
+                    st.session_state["summary"] = summary
+
                     mcqs = generate_mcqs_from_image(
                         uploaded_file,
                         number_of_questions,
-                        difficulty
+                        difficulty,
+                        final_subject,
+                        final_topic
                     )
-
+                    # Validate MCQs
                     is_valid, message = validate_mcqs(
                         mcqs,
                         number_of_questions
-                         )
-                    
-                    if is_valid:
+                    )
 
+                    if is_valid:
 
                         st.session_state["mcqs"] = mcqs
                         st.session_state["quiz_submitted"] = False
 
                     else:
 
-                        st.error(f"MCQ validation failed: {message}")
+                        st.error(
+                            f"MCQ validation failed: {message}"
+                        )
 
                 except Exception as e:
 
                     st.error(
                         f"Something went wrong: {e}"
                     )
-
 
 # TEXT INPUT
 
@@ -193,18 +248,45 @@ elif input_type == "Text":
 
         else:
 
-            with st.spinner("Generating MCQs..."):
+            with st.spinner(
+                "Analyzing study material and generating MCQs..."
+            ):
 
                 try:
+
+                    # Generate summary
+                    detected = analyze_content(text_input)
+
+                    detected_subject = detected["subject"]
+                    detected_topic = detected["topic"]
+
+                    st.session_state["detected_subject"] = detected_subject
+                    st.session_state["detected_topic"] = detected_topic
+
+                    final_subject = subject if subject.strip() else detected_subject
+                    final_topic = topic if topic.strip() else detected_topic
+
+                    summary = generate_summary(
+                        text_input,
+                        final_subject,
+                        final_topic
+                    )
+
+                    st.session_state["summary"] = summary
 
                     mcqs = generate_mcqs_from_text(
                         text_input,
                         number_of_questions,
-                        difficulty
+                        difficulty,
+                        final_subject,
+                        final_topic
                     )
+
+                    # Validate MCQs
                     is_valid, message = validate_mcqs(
                         mcqs,
-                        number_of_questions)
+                        number_of_questions
+                    )
 
                     if is_valid:
 
@@ -213,14 +295,42 @@ elif input_type == "Text":
 
                     else:
 
-                        st.error(f"MCQ validation failed: {message}")
+                        st.error(
+                            f"MCQ validation failed: {message}"
+                        )
 
                 except Exception as e:
 
                     st.error(
                         f"Something went wrong: {e}"
                     )
+
+# STUDY SUMMARY
+
+if "detected_subject" in st.session_state:
+
+    st.divider()
+
+    st.subheader("Detected Content")
+
+    st.write(
+        f"Subject: {st.session_state['detected_subject']}"
+    )
+
+    st.write(
+        f"Topic: {st.session_state['detected_topic']}"
+    )
+
+
+if "summary" in st.session_state:
+
+    st.subheader("Study Summary")
+
+    st.write(
+        st.session_state["summary"]
+    )
 # DISPLAY QUIZ
+
 if "mcqs" in st.session_state:
 
     st.divider()
@@ -249,7 +359,7 @@ if "mcqs" in st.session_state:
         )
 
 # SUBMIT QUIZ
- 
+
     st.divider()
 
     if st.button("Submit Quiz", type="primary"):
@@ -270,6 +380,7 @@ if "mcqs" in st.session_state:
             correct_answer = question["correct_answer"]
 
             if selected_letter == correct_answer:
+
                 score += 1
 
         total_questions = len(questions)
@@ -281,6 +392,7 @@ if "mcqs" in st.session_state:
         st.session_state["quiz_submitted"] = True
         st.session_state["score"] = score
         st.session_state["percentage"] = percentage
+
 
 # QUIZ RESULTS
 
@@ -299,13 +411,37 @@ if (
 
     percentage = st.session_state["percentage"]
 
-    st.success(
-        f"You scored {score} out of {len(questions)}"
+    st.write(
+        f"Score: {score} / {len(questions)}"
     )
 
     st.write(
-        f"### Percentage: {percentage:.1f}%"
+        f"Percentage: {percentage:.1f}%"
     )
+
+    if percentage >= 80:
+
+        st.write(
+            "Performance: Strong"
+        )
+
+    elif percentage >= 60:
+
+        st.write(
+            "Performance: Good"
+        )
+
+    elif percentage >= 40:
+
+        st.write(
+            "Performance: Needs improvement"
+        )
+
+    else:
+
+        st.write(
+            "Performance: Review the material and try again"
+        )
 
     st.divider()
 
@@ -352,9 +488,8 @@ if (
         st.write(
             f"**Explanation:** {question['explanation']}"
         )
-# --------------------------------
+
 # NEW QUIZ
-# --------------------------------
 
 if "mcqs" in st.session_state:
 
@@ -363,6 +498,7 @@ if "mcqs" in st.session_state:
     if st.button("Generate New Quiz"):
 
         st.session_state.pop("mcqs", None)
+        st.session_state.pop("summary", None)
         st.session_state.pop("quiz_submitted", None)
         st.session_state.pop("score", None)
         st.session_state.pop("percentage", None)
@@ -370,6 +506,7 @@ if "mcqs" in st.session_state:
         for key in list(st.session_state.keys()):
 
             if key.startswith("question_"):
+
                 del st.session_state[key]
 
         st.rerun()

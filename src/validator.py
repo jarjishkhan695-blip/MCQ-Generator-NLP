@@ -49,7 +49,7 @@ def validate_mcqs(mcqs, expected_count):
                 )
 
         # Check question text
-        if not question["question"].strip():
+        if not str(question["question"]).strip():
             return False, (
                 f"Question {question_number} has empty question text."
             )
@@ -92,6 +92,32 @@ def validate_mcqs(mcqs, expected_count):
         if not str(question["explanation"]).strip():
             return False, (
                 f"Question {question_number} has no explanation."
+            )
+
+    # Check for duplicate questions
+    question_texts = [
+        question["question"].strip().lower()
+        for question in questions
+    ]
+
+    if len(question_texts) != len(set(question_texts)):
+        return False, "Duplicate questions were generated."
+
+    # Check for duplicate options within each question
+    for i, question in enumerate(questions):
+
+        options = question["options"]
+
+        option_values = [
+            str(options["A"]).strip().lower(),
+            str(options["B"]).strip().lower(),
+            str(options["C"]).strip().lower(),
+            str(options["D"]).strip().lower()
+        ]
+
+        if len(option_values) != len(set(option_values)):
+            return False, (
+                f"Question {i + 1} contains duplicate options."
             )
 
     return True, "MCQs are valid."
